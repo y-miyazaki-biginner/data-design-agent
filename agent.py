@@ -116,6 +116,51 @@ def _generate_mock_result(requirement: str, selected_tables: list[str], columns:
     }
 
 
+def _parse_json_response(text: str) -> dict:
+    """Claude APIのレスポンスからJSONを安全にパースする"""
+    text = text.strip()
+
+    # マークダウンコードブロック除去
+    if text.startswith("```"):
+        lines = text.split("\n")
+        lines = [l for l in lines if not l.strip().startswith("```")]
+        text = "\n".join(lines).strip()
+
+    # そのままパース
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+
+    # JSON部分を抽出して再パース
+    start = text.find("{")
+    end = text.rfind("}") + 1
+    if start >= 0 and end > start:
+        try:
+            return json.loads(text[start:end])
+        except json.JSONDecodeError:
+            pass
+
+    # 不正なJSON文字を修正して再パース（制御文字の除去）
+    if start >= 0 and end > start:
+        cleaned = text[start:end]
+        # 文字列内の改行をエスケープ
+        import re
+        cleaned = re.sub(r'(?<=": ")(.*?)(?="[,\}])', lambda m: m.group(0).replace('\n', '\\n').replace('\t', '\\t'), cleaned, flags=re.DOTALL)
+        try:
+            return json.loads(cleaned)
+        except json.JSONDecodeError:
+            pass
+
+    return {
+        "data_design": [],
+        "data_flow": [],
+        "implementation_steps": [],
+        "error": "JSONのパースに失敗しました",
+        "raw_response": text[:2000],
+    }
+
+
 def _build_system_prompt(
     columns: list[dict],
     selected_tables: list[str],
@@ -327,7 +372,7 @@ def generate_proposal(
     # Claude APIに問い合わせ
     response = client.messages.create(
         model=MODEL,
-        max_tokens=8000,
+        max_tokens=16000,
         system=system_prompt,
         messages=[
             {
@@ -339,28 +384,8 @@ def generate_proposal(
 
     result_text = response.content[0].text
 
-    # JSONパース（マークダウンコードブロック除去対応）
-    result_text = result_text.strip()
-    if result_text.startswith("```"):
-        lines = result_text.split("\n")
-        lines = [l for l in lines if not l.strip().startswith("```")]
-        result_text = "\n".join(lines)
-
-    try:
-        result = json.loads(result_text)
-    except json.JSONDecodeError:
-        # JSONパースに失敗した場合、テキスト内のJSON部分を抽出
-        start = result_text.find("{")
-        end = result_text.rfind("}") + 1
-        if start >= 0 and end > start:
-            result = json.loads(result_text[start:end])
-        else:
-            result = {
-                "data_design": [],
-                "implementation_steps": [],
-                "error": "JSONのパースに失敗しました",
-                "raw_response": result_text,
-            }
+    # JSONパース
+    result = _parse_json_response(result_text)
 
     # DBに保存（draft状態）
     gen_id = save_generation(
@@ -423,7 +448,7 @@ def apply_feedback(
 
     response = client.messages.create(
         model=MODEL,
-        max_tokens=8000,
+        max_tokens=16000,
         system=system_prompt,
         messages=[
             {
@@ -433,21 +458,10 @@ def apply_feedback(
         ],
     )
 
-    result_text = response.content[0].text.strip()
-    if result_text.startswith("```"):
-        lines = result_text.split("\n")
-        lines = [l for l in lines if not l.strip().startswith("```")]
-        result_text = "\n".join(lines)
-
-    try:
-        result = json.loads(result_text)
-    except json.JSONDecodeError:
-        start = result_text.find("{")
-        end = result_text.rfind("}") + 1
-        if start >= 0 and end > start:
-            result = json.loads(result_text[start:end])
-        else:
-            return {"error": "修正結果のパースに失敗しました", "raw_response": result_text}
+    result_text = response.content[0].text
+    result = _parse_json_response(result_text)
+    if result.get("error"):
+        return {"error": "修正結果のパースに失敗しました", "raw_response": result.get("raw_response", "")}
 
     # DBの生成結果を更新
     update_generation_result(
