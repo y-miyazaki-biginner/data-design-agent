@@ -213,11 +213,217 @@ INTEGRATION_TASKS = [
 ]
 
 
+# b→dash ワークフローパターン（標準的な処理の流れ）
+WORKFLOW_PATTERNS = {
+    "standard_flow": "データパレット（加工・統合） → セグメント → コンテンツ → 配信設定",
+    "data_palette_flow": "データ取り込み → 加工（型変換・IF文・集約等） → 統合（横統合・縦統合） → 出力データ",
+}
+
+# サポートページベースのユースケースパターン
+USE_CASE_PATTERNS = [
+    {
+        "id": "cart_reminder",
+        "name": "カゴ落ちリマインド",
+        "description": "ECサイトでカートに入れたが購入していない顧客にリマインドメールを送る",
+        "data_sources": ["顧客データ", "注文データ", "商品データ", "Webアクセスログ"],
+        "steps": [
+            "Webアクセスログからカート追加イベントを抽出（絞り込み: event_type = 'add_to_cart'）",
+            "注文データと横統合（左外部結合: customer_id）して未購入を特定",
+            "IF文で「カート追加あり & 注文なし」のフラグを作成",
+            "商品データと横統合（product_id）して商品名・画像URLを取得",
+            "顧客データと横統合（customer_id）してメールアドレスを取得",
+            "セグメントでフラグ=1の顧客を抽出 → コンテンツ作成 → メール配信",
+        ],
+        "key_operations": ["絞り込み", "横統合", "IF文", "時刻演算"],
+    },
+    {
+        "id": "rank_monthly_purchasers",
+        "name": "ランク・月ごとの購買者数集計",
+        "description": "会員ランク別・月別に購買者数を集計してレポートを作成する",
+        "data_sources": ["顧客データ", "注文データ", "会員ランクマスタ"],
+        "steps": [
+            "注文データから注文月を抽出（抽出: order_dateから年月部分を取得）",
+            "顧客データと横統合（customer_id）して会員ランクを取得",
+            "会員ランクマスタと横統合（rank_id）してランク名を取得",
+            "集約: ランク名 + 注文月でグルーピングし、customer_idの件数（ユニーク）を集計",
+        ],
+        "key_operations": ["抽出", "横統合", "集約"],
+    },
+    {
+        "id": "form_response_analysis",
+        "name": "アンケート回答分析",
+        "description": "フォーム・アンケートの回答データを顧客情報と紐づけて分析する",
+        "data_sources": ["アンケート回答データ", "顧客データ"],
+        "steps": [
+            "アンケート回答データと顧客データを横統合（email = email_address）",
+            "回答内容に応じてIF文でセグメント分類フラグを作成",
+            "集約: 回答選択肢ごとに件数を集計",
+        ],
+        "key_operations": ["横統合", "IF文", "集約"],
+    },
+    {
+        "id": "line_exclusion",
+        "name": "LINE除外リスト作成",
+        "description": "LINE連携済みの顧客をメール配信対象から除外する",
+        "data_sources": ["顧客データ", "LINE連携データ"],
+        "steps": [
+            "顧客データとLINE連携データを横統合（customer_id、左外部結合）",
+            "IF文で「LINE連携あり（id_linked_flag=1）かつブロックなし（block_flag=0）」のフラグ作成",
+            "絞り込みでLINE連携フラグ=0の顧客のみ抽出（メール配信対象）",
+        ],
+        "key_operations": ["横統合", "IF文", "絞り込み"],
+    },
+    {
+        "id": "incomplete_registration",
+        "name": "未本登録リマインドメール",
+        "description": "仮登録のまま本登録が完了していない顧客にリマインドを送る",
+        "data_sources": ["顧客データ"],
+        "steps": [
+            "IF文で「provisional_registration_date IS NOT NULL かつ full_registration_date IS NULL」のフラグ作成",
+            "時刻演算で仮登録からの経過日数を算出",
+            "絞り込みで経過日数が指定範囲（例: 3〜7日）の顧客を抽出",
+            "セグメント → コンテンツ（本登録URL付き） → メール配信",
+        ],
+        "key_operations": ["IF文", "時刻演算", "絞り込み"],
+    },
+    {
+        "id": "two_month_notification",
+        "name": "2か月無アクション通知",
+        "description": "直近2か月間購買やアクセスがない顧客を特定して通知する",
+        "data_sources": ["顧客データ", "注文データ", "Webアクセスログ"],
+        "steps": [
+            "注文データを集約: customer_idでグルーピングし最終注文日（MAX）を取得",
+            "Webアクセスログを集約: customer_idでグルーピングし最終アクセス日（MAX）を取得",
+            "顧客データと横統合（customer_id）",
+            "時刻演算で最終注文日・最終アクセス日からの経過日数を算出",
+            "IF文で「両方60日以上」のフラグを作成",
+            "絞り込みでフラグ=1の顧客を抽出",
+        ],
+        "key_operations": ["集約", "横統合", "時刻演算", "IF文", "絞り込み"],
+    },
+    {
+        "id": "favorite_reminder",
+        "name": "お気に入りリマインド",
+        "description": "お気に入り登録した商品の価格変動や在庫復活を通知する",
+        "data_sources": ["顧客データ", "商品データ", "Webアクセスログ", "Webコンバージョンデータ"],
+        "steps": [
+            "Webコンバージョンデータから「お気に入り登録」イベントを絞り込み",
+            "商品データと横統合（product_id）して最新価格・在庫状況を取得",
+            "IF文で「値下げあり」や「在庫復活」のフラグ作成（current_price < regular_price 等）",
+            "顧客データと横統合（customer_id）してメールアドレス取得",
+            "セグメント → パーソナライズコンテンツ → 配信",
+        ],
+        "key_operations": ["絞り込み", "横統合", "IF文", "四則演算"],
+    },
+    {
+        "id": "sales_forecast",
+        "name": "営業担当×月×商品の受注見込み集計",
+        "description": "案件データから営業担当者ごと・月ごと・商品ごとの受注見込みを集計する",
+        "data_sources": ["案件データ"],
+        "steps": [
+            "案件データの受注確度をIF文でランク分け（A: 80%以上、B: 50-79%、C: 50%未満）",
+            "四則演算で見込み金額を算出（amount × order_confirmation_rate）",
+            "集約: sales_rep + expected_order_month + product_name でグルーピングし、見込み金額の合計・件数を集計",
+        ],
+        "key_operations": ["IF文", "四則演算", "集約"],
+    },
+    {
+        "id": "cross_division_integration",
+        "name": "部門横断データ統合",
+        "description": "EC・店舗・コールセンター等の複数部門データを統合して顧客360度ビューを作成する",
+        "data_sources": ["顧客データ", "注文データ", "店舗マスタ", "問い合わせ履歴"],
+        "steps": [
+            "注文データを集約: customer_idでグルーピングし、購買回数・累計金額・最終購買日を集計",
+            "店舗マスタと横統合（store_id）して店舗名・エリアを取得",
+            "顧客データと横統合（customer_id）して基本情報を取得",
+            "必要に応じて問い合わせデータも集約・横統合",
+            "全データを横統合でcustomer_idベースに統合",
+        ],
+        "key_operations": ["集約", "横統合"],
+    },
+    {
+        "id": "horizontal_to_vertical",
+        "name": "横持ち→縦持ち変換",
+        "description": "横持ちデータ（カラムに月別値等）を縦持ちに変換する",
+        "data_sources": [],
+        "steps": [
+            "元データを複製して月数分のコピーを作成",
+            "各コピーに「月」カラムを追加（固定値）",
+            "各コピーで該当月のカラムを「値」カラムにリネーム（複製→削除で調整）",
+            "全コピーを縦統合で結合",
+        ],
+        "key_operations": ["複製", "追加", "削除", "縦統合"],
+    },
+    {
+        "id": "email_click_analysis",
+        "name": "メール配信クリック率分析",
+        "description": "メール配信のクリック率をキャンペーン別・セグメント別に分析する",
+        "data_sources": ["メール配信ログ", "顧客データ", "会員ランクマスタ"],
+        "steps": [
+            "メール配信ログと顧客データを横統合（customer_id）",
+            "会員ランクマスタと横統合（rank_id）してランク名取得",
+            "IF文でクリック有無フラグ作成（click_flag = 1 → クリックあり）",
+            "集約: campaign_name + rank_name でグルーピングし、配信数（件数）・クリック数（SUM of click_flag）を集計",
+            "四則演算でクリック率を算出（クリック数 / 配信数 × 100）",
+        ],
+        "key_operations": ["横統合", "IF文", "集約", "四則演算"],
+    },
+]
+
+# データパレット テンプレート（よく使う加工パターン）
+PROCESSING_TEMPLATES = [
+    {
+        "name": "日付から年月抽出",
+        "operation": "抽出",
+        "description": "日付カラムから年月（YYYYMM）を取り出す",
+        "example": "order_date '2024-03-15' → '202403'",
+    },
+    {
+        "name": "経過日数算出",
+        "operation": "時刻演算",
+        "description": "基準日から対象日までの日数差を算出",
+        "example": "現在日 - registration_date → 経過日数",
+    },
+    {
+        "name": "金額ランク分け",
+        "operation": "IF文",
+        "description": "金額に応じてA/B/Cランクを付与",
+        "example": "purchase_amount >= 100000 → 'A', >= 30000 → 'B', else → 'C'",
+    },
+    {
+        "name": "NULL埋め",
+        "operation": "IF文",
+        "description": "NULLの場合にデフォルト値を設定",
+        "example": "column IS NULL → '未設定', else → column の値",
+    },
+    {
+        "name": "フラグ変換",
+        "operation": "置換",
+        "description": "0/1フラグを日本語ラベルに変換",
+        "example": "1 → '有効', 0 → '無効'",
+    },
+    {
+        "name": "税込計算",
+        "operation": "四則演算",
+        "description": "税抜金額から税込金額を算出",
+        "example": "price × 1.1 → tax_included_price",
+    },
+    {
+        "name": "割合算出",
+        "operation": "四則演算",
+        "description": "2つの数値から割合（%）を算出",
+        "example": "click_count / send_count × 100 → click_rate",
+    },
+]
+
+
 def get_all_tasks() -> dict:
     """全タスク情報を返す"""
     return {
         "processing_tasks": PROCESSING_TASKS,
         "integration_tasks": INTEGRATION_TASKS,
+        "use_case_patterns": USE_CASE_PATTERNS,
+        "processing_templates": PROCESSING_TEMPLATES,
     }
 
 
@@ -232,19 +438,26 @@ def get_task_by_id(task_id: str) -> dict | None:
 def build_knowledge_prompt() -> str:
     """エージェントのプロンプトに埋め込む用のナレッジ文字列を生成"""
     lines = []
+
+    # ワークフロー
+    lines.append("【b→dash 標準ワークフロー】")
+    lines.append(f"全体フロー: {WORKFLOW_PATTERNS['standard_flow']}")
+    lines.append(f"データパレット内フロー: {WORKFLOW_PATTERNS['data_palette_flow']}")
+    lines.append("")
+
+    # 加工タスク
     lines.append("【b→dashデータパレット: 加工タスク（20種類）】")
     for i, task in enumerate(PROCESSING_TASKS, 1):
         lines.append(f"{i}. {task['name']} - {task['description']}")
-        lines.append(f"   SQL相当: {task['sql_equivalent']}")
         lines.append(f"   GUI操作: {task['gui_path']}")
         lines.append(f"   パラメータ: {', '.join(task['params'])}")
         lines.append(f"   用途例: {task['use_case']}")
         lines.append("")
 
+    # 統合タスク
     lines.append("【b→dashデータパレット: 統合タスク】")
     for task in INTEGRATION_TASKS:
         lines.append(f"- {task['name']} - {task['description']}")
-        lines.append(f"  SQL相当: {task['sql_equivalent']}")
         lines.append(f"  GUI操作: {task['gui_path']}")
         lines.append(f"  パラメータ: {', '.join(task['params'])}")
         lines.append(f"  用途例: {task['use_case']}")
@@ -252,6 +465,24 @@ def build_knowledge_prompt() -> str:
             for jtype, jdesc in task["join_types"].items():
                 lines.append(f"    - {jtype}: {jdesc}")
         lines.append("")
+
+    # ユースケースパターン
+    lines.append("【実践ユースケースパターン（b→dashサポートページ準拠）】")
+    for uc in USE_CASE_PATTERNS:
+        lines.append(f"■ {uc['name']}: {uc['description']}")
+        if uc['data_sources']:
+            lines.append(f"  使用データ: {', '.join(uc['data_sources'])}")
+        lines.append(f"  主要操作: {', '.join(uc['key_operations'])}")
+        for j, step in enumerate(uc['steps'], 1):
+            lines.append(f"  {j}. {step}")
+        lines.append("")
+
+    # テンプレート
+    lines.append("【よく使う加工テンプレート】")
+    for tmpl in PROCESSING_TEMPLATES:
+        lines.append(f"- {tmpl['name']}（{tmpl['operation']}）: {tmpl['description']}")
+        lines.append(f"  例: {tmpl['example']}")
+    lines.append("")
 
     return "\n".join(lines)
 
