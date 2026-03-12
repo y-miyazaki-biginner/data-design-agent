@@ -3,6 +3,7 @@
 import hashlib
 import json
 import sqlite3
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -11,10 +12,23 @@ DB_PATH = Path(__file__).parent / "knowledge.db"
 
 
 def get_connection() -> sqlite3.Connection:
-    conn = sqlite3.connect(str(DB_PATH))
+    conn = sqlite3.connect(str(DB_PATH), timeout=30)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
+
+
+def _execute_with_retry(func, max_retries=3):
+    """database is locked エラー時にリトライ"""
+    for attempt in range(max_retries):
+        try:
+            return func()
+        except sqlite3.OperationalError as e:
+            if "database is locked" in str(e) and attempt < max_retries - 1:
+                time.sleep(0.5 * (attempt + 1))
+                continue
+            raise
 
 
 def init_db():
@@ -112,6 +126,16 @@ def get_project(project_id: int) -> dict | None:
 
 # === 生成履歴 ===
 
+def _ensure_project_exists(conn, project_id: int):
+    """project_idが存在しない場合は自動作成"""
+    row = conn.execute("SELECT id FROM projects WHERE id = ?", (project_id,)).fetchone()
+    if not row:
+        conn.execute(
+            "INSERT INTO projects (id, name) VALUES (?, ?)",
+            (project_id, f"プロジェクト{project_id}"),
+        )
+
+
 def save_generation(
     project_id: int,
     requirement: str,
@@ -122,26 +146,31 @@ def save_generation(
     result_flow: list = None,
     status: str = "draft",
 ) -> int:
-    conn = get_connection()
-    cursor = conn.execute(
-        """INSERT INTO generation_history
-        (project_id, status, requirement, source_tables, source_columns, result_design, result_steps, result_flow)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-        (
-            project_id,
-            status,
-            requirement,
-            json.dumps(source_tables, ensure_ascii=False),
-            json.dumps(source_columns, ensure_ascii=False),
-            json.dumps(result_design, ensure_ascii=False),
-            json.dumps(result_steps, ensure_ascii=False),
-            json.dumps(result_flow or [], ensure_ascii=False),
-        ),
-    )
-    gen_id = cursor.lastrowid
-    conn.commit()
-    conn.close()
-    return gen_id
+    def _do():
+        conn = get_connection()
+        try:
+            _ensure_project_exists(conn, project_id)
+            cursor = conn.execute(
+                """INSERT INTO generation_history
+                (project_id, status, requirement, source_tables, source_columns, result_design, result_steps, result_flow)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    project_id,
+                    status,
+                    requirement,
+                    json.dumps(source_tables, ensure_ascii=False),
+                    json.dumps(source_columns, ensure_ascii=False),
+                    json.dumps(result_design, ensure_ascii=False),
+                    json.dumps(result_steps, ensure_ascii=False),
+                    json.dumps(result_flow or [], ensure_ascii=False),
+                ),
+            )
+            gen_id = cursor.lastrowid
+            conn.commit()
+            return gen_id
+        finally:
+            conn.close()
+    return _execute_with_retry(_do)
 
 
 def get_generation(generation_id: int) -> dict | None:
@@ -158,28 +187,36 @@ def get_generation(generation_id: int) -> dict | None:
 
 
 def update_generation_status(generation_id: int, status: str):
-    conn = get_connection()
-    conn.execute(
-        "UPDATE generation_history SET status = ? WHERE id = ?",
-        (status, generation_id),
-    )
-    conn.commit()
-    conn.close()
+    def _do():
+        conn = get_connection()
+        try:
+            conn.execute(
+                "UPDATE generation_history SET status = ? WHERE id = ?",
+                (status, generation_id),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+    _execute_with_retry(_do)
 
 
 def update_generation_result(generation_id: int, result_design: dict, result_steps: list, result_flow: list = None):
-    conn = get_connection()
-    conn.execute(
-        "UPDATE generation_history SET result_design = ?, result_steps = ?, result_flow = ? WHERE id = ?",
-        (
-            json.dumps(result_design, ensure_ascii=False),
-            json.dumps(result_steps, ensure_ascii=False),
-            json.dumps(result_flow or [], ensure_ascii=False),
-            generation_id,
-        ),
-    )
-    conn.commit()
-    conn.close()
+    def _do():
+        conn = get_connection()
+        try:
+            conn.execute(
+                "UPDATE generation_history SET result_design = ?, result_steps = ?, result_flow = ? WHERE id = ?",
+                (
+                    json.dumps(result_design, ensure_ascii=False),
+                    json.dumps(result_steps, ensure_ascii=False),
+                    json.dumps(result_flow or [], ensure_ascii=False),
+                    generation_id,
+                ),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+    _execute_with_retry(_do)
 
 
 def get_project_history(project_id: int) -> list[dict]:
@@ -203,17 +240,22 @@ def save_feedback(
     original_content: str = "",
     corrected_content: str = "",
 ) -> int:
-    conn = get_connection()
-    cursor = conn.execute(
-        """INSERT INTO feedback_history
-        (generation_id, project_id, feedback_type, feedback_text, affected_step, original_content, corrected_content)
-        VALUES (?, ?, ?, ?, ?, ?, ?)""",
-        (generation_id, project_id, feedback_type, feedback_text, affected_step, original_content, corrected_content),
-    )
-    fb_id = cursor.lastrowid
-    conn.commit()
-    conn.close()
-    return fb_id
+    def _do():
+        conn = get_connection()
+        try:
+            _ensure_project_exists(conn, project_id)
+            cursor = conn.execute(
+                """INSERT INTO feedback_history
+                (generation_id, project_id, feedback_type, feedback_text, affected_step, original_content, corrected_content)
+                VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                (generation_id, project_id, feedback_type, feedback_text, affected_step, original_content, corrected_content),
+            )
+            fb_id = cursor.lastrowid
+            conn.commit()
+            return fb_id
+        finally:
+            conn.close()
+    return _execute_with_retry(_do)
 
 
 def get_relevant_feedback(table_names: list[str], requirement: str, limit: int = 10) -> list[dict]:

@@ -129,6 +129,15 @@
         .search-results-header h3 { font-size: 16px; color: #2d3748; }
         .search-results-header .result-count { color: #718096; font-size: 13px; }
 
+        .catalog-filter { margin-bottom: 12px; }
+        .catalog-filter input {
+            width: 100%; padding: 10px 14px; border: 2px solid #e2e8f0; border-radius: 8px;
+            font-size: 14px; background: #f7fafc; transition: border-color 0.2s;
+        }
+        .catalog-filter input:focus {
+            outline: none; border-color: #008CCF; background: #fff;
+        }
+
         .result-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
         .result-card {
             border: 2px solid #e2e8f0; border-radius: 10px; padding: 16px; cursor: pointer;
@@ -411,6 +420,9 @@
                         <h3 id="searchResultsTitle">検索結果</h3>
                         <span class="result-count" id="resultCount"></span>
                     </div>
+                    <div class="catalog-filter" id="catalogFilter" style="display:none;">
+                        <input type="text" id="catalogFilterInput" placeholder="テーブル名・タグ・説明で絞り込み..." oninput="filterCatalog()">
+                    </div>
                     <div class="result-cards" id="resultCards"></div>
                 </div>
 
@@ -642,6 +654,7 @@
             document.getElementById('previewSection').classList.remove('visible');
             document.getElementById('requirementsGroup').style.display = 'none';
             document.getElementById('generateBtnWrap').style.display = 'none';
+            document.getElementById('catalogFilter').style.display = 'none';
             document.getElementById('searchBtn').disabled = true;
 
             // Redash connection animation
@@ -675,6 +688,8 @@
             }
         }
 
+        let allCatalogData = []; // 全カタログデータのキャッシュ
+
         async function showAllCatalog() {
             const progress = document.getElementById('searchProgress');
             const progressText = document.getElementById('searchProgressText');
@@ -688,7 +703,7 @@
                 progress.classList.remove('visible');
 
                 // Convert to search result format
-                searchResultData = data.map(d => ({
+                allCatalogData = data.map(d => ({
                     name: d.name,
                     description: d.description,
                     relevance_score: null,
@@ -697,11 +712,54 @@
                     tags: d.tags || [],
                     column_count: d.column_count,
                 }));
+                searchResultData = [...allCatalogData];
                 showSearchResults(searchResultData, null, true);
+
+                // Show filter bar
+                document.getElementById('catalogFilter').style.display = 'block';
+                document.getElementById('catalogFilterInput').value = '';
             } catch (e) {
                 progress.classList.remove('visible');
                 alert('カタログ取得エラー: ' + e.message);
             }
+        }
+
+        function filterCatalog() {
+            const filterText = document.getElementById('catalogFilterInput').value.trim().toLowerCase();
+            if (!filterText) {
+                searchResultData = [...allCatalogData];
+            } else {
+                searchResultData = allCatalogData.filter(d => {
+                    return d.name.toLowerCase().includes(filterText)
+                        || (d.description || '').toLowerCase().includes(filterText)
+                        || (d.tags || []).some(t => t.toLowerCase().includes(filterText));
+                });
+            }
+            // Re-render cards without resetting selections
+            const container = document.getElementById('resultCards');
+            container.innerHTML = '';
+            document.getElementById('resultCount').textContent = `${searchResultData.length} 件のデータソースが見つかりました`;
+
+            searchResultData.forEach(r => {
+                const card = document.createElement('div');
+                card.className = 'result-card';
+                card.dataset.tableName = r.name;
+                if (selectedTables.has(r.name)) card.classList.add('selected');
+
+                const tagsHtml = (r.tags || []).map(t => `<span class="card-tag">${t}</span>`).join('');
+                card.innerHTML = `
+                    <div class="card-check">&#10003;</div>
+                    <div class="card-title">${r.name}</div>
+                    <div class="card-desc">${r.description || ''}</div>
+                    <div class="card-meta">
+                        ${tagsHtml}
+                        ${r.record_count ? `<span class="card-tag">${r.record_count.toLocaleString()} 件</span>` : ''}
+                        ${r.column_count ? `<span class="card-tag">${r.column_count} カラム</span>` : ''}
+                    </div>
+                `;
+                card.onclick = () => toggleTableCard(card, r.name);
+                container.appendChild(card);
+            });
         }
 
         function showSearchResults(results, query, isCatalog = false) {

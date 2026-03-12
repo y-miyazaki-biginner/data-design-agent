@@ -151,8 +151,11 @@ async def api_generate_propose(
             selected_tables=tables,
         )
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(500, f"生成エラー: {str(e)}")
 
+    # パースエラーがあっても結果は返す（UIで表示可能な範囲で）
     _session_data["last_generation"] = result
     return result
 

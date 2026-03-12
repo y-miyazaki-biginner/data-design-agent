@@ -117,48 +117,89 @@ def _generate_mock_result(requirement: str, selected_tables: list[str], columns:
 
 
 def _parse_json_response(text: str) -> dict:
-    """Claude APIのレスポンスからJSONを安全にパースする"""
-    text = text.strip()
-
-    # マークダウンコードブロック除去
-    if text.startswith("```"):
-        lines = text.split("\n")
-        lines = [l for l in lines if not l.strip().startswith("```")]
-        text = "\n".join(lines).strip()
-
-    # そのままパース
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        pass
-
-    # JSON部分を抽出して再パース
-    start = text.find("{")
-    end = text.rfind("}") + 1
-    if start >= 0 and end > start:
-        try:
-            return json.loads(text[start:end])
-        except json.JSONDecodeError:
-            pass
-
-    # 不正なJSON文字を修正して再パース（制御文字の除去）
-    if start >= 0 and end > start:
-        cleaned = text[start:end]
-        # 文字列内の改行をエスケープ
-        import re
-        cleaned = re.sub(r'(?<=": ")(.*?)(?="[,\}])', lambda m: m.group(0).replace('\n', '\\n').replace('\t', '\\t'), cleaned, flags=re.DOTALL)
-        try:
-            return json.loads(cleaned)
-        except json.JSONDecodeError:
-            pass
-
-    return {
+    """Claude APIのレスポンスからJSONを安全にパースする。絶対に例外を投げない。"""
+    fallback = {
         "data_design": [],
         "data_flow": [],
         "implementation_steps": [],
         "error": "JSONのパースに失敗しました",
-        "raw_response": text[:2000],
+        "raw_response": (text or "")[:2000],
     }
+    try:
+        text = (text or "").strip()
+        if not text:
+            return fallback
+
+        # マークダウンコードブロック除去
+        if text.startswith("```"):
+            lines = text.split("\n")
+            lines = [l for l in lines if not l.strip().startswith("```")]
+            text = "\n".join(lines).strip()
+
+        # Stage 1: そのままパース
+        try:
+            return json.loads(text)
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+        # Stage 2: JSON部分を抽出して再パース
+        start = text.find("{")
+        end = text.rfind("}") + 1
+        if start >= 0 and end > start:
+            try:
+                return json.loads(text[start:end])
+            except (json.JSONDecodeError, ValueError):
+                pass
+
+        # Stage 3: 制御文字を除去して再パース
+        if start >= 0 and end > start:
+            cleaned = text[start:end]
+            # 文字列値内の生の改行・タブを除去（regexを使わない安全な方法）
+            in_string = False
+            escape_next = False
+            result_chars = []
+            for ch in cleaned:
+                if escape_next:
+                    result_chars.append(ch)
+                    escape_next = False
+                    continue
+                if ch == '\\' and in_string:
+                    result_chars.append(ch)
+                    escape_next = True
+                    continue
+                if ch == '"':
+                    in_string = not in_string
+                    result_chars.append(ch)
+                    continue
+                if in_string and ch == '\n':
+                    result_chars.append('\\n')
+                    continue
+                if in_string and ch == '\t':
+                    result_chars.append('\\t')
+                    continue
+                if in_string and ch == '\r':
+                    continue
+                result_chars.append(ch)
+            try:
+                return json.loads("".join(result_chars))
+            except (json.JSONDecodeError, ValueError):
+                pass
+
+        # Stage 4: 最終手段 - 制御文字を全部削除
+        if start >= 0 and end > start:
+            import re
+            cleaned = text[start:end]
+            cleaned = re.sub(r'[\x00-\x1f\x7f]', ' ', cleaned)
+            try:
+                return json.loads(cleaned)
+            except (json.JSONDecodeError, ValueError):
+                pass
+
+        fallback["raw_response"] = text[:2000]
+        return fallback
+    except Exception:
+        # 何が起きても絶対にフォールバックを返す
+        return fallback
 
 
 def _build_system_prompt(
@@ -384,8 +425,15 @@ def generate_proposal(
 
     result_text = response.content[0].text
 
-    # JSONパース
+    # JSONパース（絶対に例外を投げない）
     result = _parse_json_response(result_text)
+
+    # パース失敗時もエラーとして返さずDB保存して返す（UIで空表示になる）
+    if result.get("error"):
+        # ログ出力
+        import sys
+        print(f"[WARN] JSONパース失敗: {result.get('error')}", file=sys.stderr)
+        print(f"[WARN] raw_response先頭500文字: {result.get('raw_response', '')[:500]}", file=sys.stderr)
 
     # DBに保存（draft状態）
     gen_id = save_generation(
