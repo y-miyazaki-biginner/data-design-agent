@@ -948,6 +948,17 @@
         // === Results ===
         function showResults() {
             if (!currentResult) return;
+
+            // 空結果チェック（JSONパース失敗 or truncation）
+            const hasDesign = (currentResult.data_design || []).length > 0;
+            const hasSteps = (currentResult.implementation_steps || []).length > 0;
+            if (!hasDesign && !hasSteps) {
+                if (confirm('生成結果が空でした（レスポンスが途中で切れた可能性があります）。\n\nもう一度生成しますか？')) {
+                    doGenerate();
+                    return;
+                }
+            }
+
             const isConfirmed = currentResult.status === 'confirmed';
 
             // Status badge
