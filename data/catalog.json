@@ -1,0 +1,707 @@
+{
+  "version": "1.0",
+  "last_synced": "2026-03-13T10:00:00+09:00",
+  "redash_instance": "https://redash.internal.example.co.jp",
+  "data_sources": [
+    {
+      "id": "DS001",
+      "name": "顧客マスタ",
+      "description": "b→dashに取り込まれた顧客基本情報。氏名、メールアドレス、登録日等を含む",
+      "schema": "bdash_production",
+      "record_count": 152340,
+      "tags": ["顧客", "マスタ", "CRM", "基本情報"],
+      "columns": [
+        {
+          "column_id": "C001",
+          "logical_name": "顧客ID",
+          "physical_name": "customer_id",
+          "custom_physical_name": "",
+          "data_type": "VARCHAR(64)",
+          "customer_id_flag": 1,
+          "is_deleted": false,
+          "description": "顧客を一意に識別するID"
+        },
+        {
+          "column_id": "C002",
+          "logical_name": "顧客名",
+          "physical_name": "customer_name",
+          "custom_physical_name": "",
+          "data_type": "VARCHAR(255)",
+          "customer_id_flag": 0,
+          "is_deleted": false,
+          "description": "顧客のフルネーム"
+        },
+        {
+          "column_id": "C003",
+          "logical_name": "メールアドレス",
+          "physical_name": "email",
+          "custom_physical_name": "",
+          "data_type": "VARCHAR(255)",
+          "customer_id_flag": 0,
+          "is_deleted": false,
+          "description": "顧客のメールアドレス"
+        },
+        {
+          "column_id": "C004",
+          "logical_name": "電話番号",
+          "physical_name": "phone",
+          "custom_physical_name": "",
+          "data_type": "VARCHAR(20)",
+          "customer_id_flag": 0,
+          "is_deleted": false,
+          "description": "顧客の電話番号"
+        },
+        {
+          "column_id": "C005",
+          "logical_name": "性別",
+          "physical_name": "gender",
+          "custom_physical_name": "",
+          "data_type": "VARCHAR(10)",
+          "customer_id_flag": 0,
+          "is_deleted": false,
+          "description": "性別（M/F/Other）"
+        },
+        {
+          "column_id": "C006",
+          "logical_name": "生年月日",
+          "physical_name": "birth_date",
+          "custom_physical_name": "",
+          "data_type": "DATE",
+          "customer_id_flag": 0,
+          "is_deleted": false,
+          "description": "顧客の生年月日"
+        },
+        {
+          "column_id": "C007",
+          "logical_name": "都道府県",
+          "physical_name": "prefecture",
+          "custom_physical_name": "",
+          "data_type": "VARCHAR(10)",
+          "customer_id_flag": 0,
+          "is_deleted": false,
+          "description": "顧客の居住都道府県"
+        },
+        {
+          "column_id": "C008",
+          "logical_name": "登録日",
+          "physical_name": "registered_at",
+          "custom_physical_name": "",
+          "data_type": "TIMESTAMP",
+          "customer_id_flag": 0,
+          "is_deleted": false,
+          "description": "会員登録日時"
+        },
+        {
+          "column_id": "C009",
+          "logical_name": "会員ランクID",
+          "physical_name": "rank_id",
+          "custom_physical_name": "",
+          "data_type": "INTEGER",
+          "customer_id_flag": 0,
+          "is_deleted": false,
+          "description": "現在の会員ランクID"
+        }
+      ]
+    },
+    {
+      "id": "DS002",
+      "name": "購買履歴",
+      "description": "ECサイトの購買トランザクションデータ。注文ごとに1レコード",
+      "schema": "bdash_production",
+      "record_count": 2458920,
+      "tags": ["購買", "EC", "トランザクション", "売上"],
+      "columns": [
+        {
+          "column_id": "C010",
+          "logical_name": "注文ID",
+          "physical_name": "order_id",
+          "custom_physical_name": "",
+          "data_type": "VARCHAR(64)",
+          "customer_id_flag": 0,
+          "is_deleted": false,
+          "description": "注文を一意に識別するID"
+        },
+        {
+          "column_id": "C011",
+          "logical_name": "顧客ID",
+          "physical_name": "customer_id",
+          "custom_physical_name": "",
+          "data_type": "VARCHAR(64)",
+          "customer_id_flag": 1,
+          "is_deleted": false,
+          "description": "購買した顧客のID"
+        },
+        {
+          "column_id": "C012",
+          "logical_name": "購買日時",
+          "physical_name": "purchased_at",
+          "custom_physical_name": "",
+          "data_type": "TIMESTAMP",
+          "customer_id_flag": 0,
+          "is_deleted": false,
+          "description": "購買が行われた日時"
+        },
+        {
+          "column_id": "C013",
+          "logical_name": "購買金額",
+          "physical_name": "order_amount",
+          "custom_physical_name": "",
+          "data_type": "INTEGER",
+          "customer_id_flag": 0,
+          "is_deleted": false,
+          "description": "注文の合計金額（税込）"
+        },
+        {
+          "column_id": "C014",
+          "logical_name": "商品ID",
+          "physical_name": "product_id",
+          "custom_physical_name": "",
+          "data_type": "VARCHAR(64)",
+          "customer_id_flag": 0,
+          "is_deleted": false,
+          "description": "購買された商品のID"
+        },
+        {
+          "column_id": "C015",
+          "logical_name": "数量",
+          "physical_name": "quantity",
+          "custom_physical_name": "",
+          "data_type": "INTEGER",
+          "customer_id_flag": 0,
+          "is_deleted": false,
+          "description": "購買数量"
+        },
+        {
+          "column_id": "C016",
+          "logical_name": "決済方法",
+          "physical_name": "payment_method",
+          "custom_physical_name": "",
+          "data_type": "VARCHAR(30)",
+          "customer_id_flag": 0,
+          "is_deleted": false,
+          "description": "決済方法（クレジットカード/銀行振込/代引き等）"
+        },
+        {
+          "column_id": "C017",
+          "logical_name": "店舗ID",
+          "physical_name": "store_id",
+          "custom_physical_name": "",
+          "data_type": "VARCHAR(20)",
+          "customer_id_flag": 0,
+          "is_deleted": false,
+          "description": "購買が行われた店舗のID"
+        }
+      ]
+    },
+    {
+      "id": "DS003",
+      "name": "商品マスタ",
+      "description": "ECサイトで販売している商品のマスタ情報。カテゴリ、単価等を含む",
+      "schema": "bdash_production",
+      "record_count": 8520,
+      "tags": ["商品", "マスタ", "EC", "カテゴリ"],
+      "columns": [
+        {
+          "column_id": "C020",
+          "logical_name": "商品ID",
+          "physical_name": "product_id",
+          "custom_physical_name": "",
+          "data_type": "VARCHAR(64)",
+          "customer_id_flag": 0,
+          "is_deleted": false,
+          "description": "商品を一意に識別するID"
+        },
+        {
+          "column_id": "C021",
+          "logical_name": "商品名",
+          "physical_name": "product_name",
+          "custom_physical_name": "",
+          "data_type": "VARCHAR(255)",
+          "customer_id_flag": 0,
+          "is_deleted": false,
+          "description": "商品名"
+        },
+        {
+          "column_id": "C022",
+          "logical_name": "カテゴリ",
+          "physical_name": "category",
+          "custom_physical_name": "",
+          "data_type": "VARCHAR(100)",
+          "customer_id_flag": 0,
+          "is_deleted": false,
+          "description": "商品の大カテゴリ"
+        },
+        {
+          "column_id": "C023",
+          "logical_name": "サブカテゴリ",
+          "physical_name": "subcategory",
+          "custom_physical_name": "",
+          "data_type": "VARCHAR(100)",
+          "customer_id_flag": 0,
+          "is_deleted": false,
+          "description": "商品のサブカテゴリ"
+        },
+        {
+          "column_id": "C024",
+          "logical_name": "単価",
+          "physical_name": "unit_price",
+          "custom_physical_name": "",
+          "data_type": "INTEGER",
+          "customer_id_flag": 0,
+          "is_deleted": false,
+          "description": "商品の税抜単価"
+        },
+        {
+          "column_id": "C025",
+          "logical_name": "ブランド",
+          "physical_name": "brand",
+          "custom_physical_name": "",
+          "data_type": "VARCHAR(100)",
+          "customer_id_flag": 0,
+          "is_deleted": false,
+          "description": "商品ブランド名"
+        }
+      ]
+    },
+    {
+      "id": "DS004",
+      "name": "キャンペーン配信履歴",
+      "description": "マーケティングキャンペーンの配信履歴。施策ごとの配信先・チャネル情報",
+      "schema": "bdash_production",
+      "record_count": 892150,
+      "tags": ["キャンペーン", "マーケティング", "配信", "施策"],
+      "columns": [
+        {
+          "column_id": "C030",
+          "logical_name": "キャンペーンID",
+          "physical_name": "campaign_id",
+          "custom_physical_name": "",
+          "data_type": "VARCHAR(64)",
+          "customer_id_flag": 0,
+          "is_deleted": false,
+          "description": "キャンペーンを一意に識別するID"
+        },
+        {
+          "column_id": "C031",
+          "logical_name": "顧客ID",
+          "physical_name": "customer_id",
+          "custom_physical_name": "",
+          "data_type": "VARCHAR(64)",
+          "customer_id_flag": 1,
+          "is_deleted": false,
+          "description": "配信先の顧客ID"
+        },
+        {
+          "column_id": "C032",
+          "logical_name": "配信日時",
+          "physical_name": "send_date",
+          "custom_physical_name": "",
+          "data_type": "TIMESTAMP",
+          "customer_id_flag": 0,
+          "is_deleted": false,
+          "description": "キャンペーン配信日時"
+        },
+        {
+          "column_id": "C033",
+          "logical_name": "キャンペーン名",
+          "physical_name": "campaign_name",
+          "custom_physical_name": "",
+          "data_type": "VARCHAR(255)",
+          "customer_id_flag": 0,
+          "is_deleted": false,
+          "description": "キャンペーンの名称"
+        },
+        {
+          "column_id": "C034",
+          "logical_name": "チャネル",
+          "physical_name": "channel",
+          "custom_physical_name": "",
+          "data_type": "VARCHAR(30)",
+          "customer_id_flag": 0,
+          "is_deleted": false,
+          "description": "配信チャネル（メール/LINE/Push/SMS）"
+        },
+        {
+          "column_id": "C035",
+          "logical_name": "コンバージョンフラグ",
+          "physical_name": "conversion_flag",
+          "custom_physical_name": "",
+          "data_type": "INTEGER",
+          "customer_id_flag": 0,
+          "is_deleted": false,
+          "description": "キャンペーン経由でCVしたか（0/1）"
+        }
+      ]
+    },
+    {
+      "id": "DS005",
+      "name": "メール配信ログ",
+      "description": "メールマーケティングの配信・開封・クリックログ",
+      "schema": "bdash_production",
+      "record_count": 3215600,
+      "tags": ["メール", "配信", "開封", "クリック", "マーケティング"],
+      "columns": [
+        {
+          "column_id": "C040",
+          "logical_name": "配信ID",
+          "physical_name": "delivery_id",
+          "custom_physical_name": "",
+          "data_type": "VARCHAR(64)",
+          "customer_id_flag": 0,
+          "is_deleted": false,
+          "description": "メール配信を一意に識別するID"
+        },
+        {
+          "column_id": "C041",
+          "logical_name": "顧客ID",
+          "physical_name": "customer_id",
+          "custom_physical_name": "",
+          "data_type": "VARCHAR(64)",
+          "customer_id_flag": 1,
+          "is_deleted": false,
+          "description": "配信先の顧客ID"
+        },
+        {
+          "column_id": "C042",
+          "logical_name": "配信日時",
+          "physical_name": "send_date",
+          "custom_physical_name": "",
+          "data_type": "TIMESTAMP",
+          "customer_id_flag": 0,
+          "is_deleted": false,
+          "description": "メール配信日時"
+        },
+        {
+          "column_id": "C043",
+          "logical_name": "開封フラグ",
+          "physical_name": "open_flag",
+          "custom_physical_name": "",
+          "data_type": "INTEGER",
+          "customer_id_flag": 0,
+          "is_deleted": false,
+          "description": "メールを開封したか（0/1）"
+        },
+        {
+          "column_id": "C044",
+          "logical_name": "クリックフラグ",
+          "physical_name": "click_flag",
+          "custom_physical_name": "",
+          "data_type": "INTEGER",
+          "customer_id_flag": 0,
+          "is_deleted": false,
+          "description": "メール内のリンクをクリックしたか（0/1）"
+        },
+        {
+          "column_id": "C045",
+          "logical_name": "件名",
+          "physical_name": "email_subject",
+          "custom_physical_name": "",
+          "data_type": "VARCHAR(255)",
+          "customer_id_flag": 0,
+          "is_deleted": false,
+          "description": "メールの件名"
+        }
+      ]
+    },
+    {
+      "id": "DS006",
+      "name": "Webアクセスログ",
+      "description": "Webサイトのページ閲覧ログ。セッション・ページ・デバイス情報",
+      "schema": "bdash_production",
+      "record_count": 12500000,
+      "tags": ["Web", "アクセス", "ページビュー", "デバイス", "行動"],
+      "columns": [
+        {
+          "column_id": "C050",
+          "logical_name": "セッションID",
+          "physical_name": "session_id",
+          "custom_physical_name": "",
+          "data_type": "VARCHAR(64)",
+          "customer_id_flag": 0,
+          "is_deleted": false,
+          "description": "セッションを一意に識別するID"
+        },
+        {
+          "column_id": "C051",
+          "logical_name": "顧客ID",
+          "physical_name": "customer_id",
+          "custom_physical_name": "",
+          "data_type": "VARCHAR(64)",
+          "customer_id_flag": 1,
+          "is_deleted": false,
+          "description": "アクセスした顧客のID（未ログインはNULL）"
+        },
+        {
+          "column_id": "C052",
+          "logical_name": "アクセス日時",
+          "physical_name": "access_date",
+          "custom_physical_name": "",
+          "data_type": "TIMESTAMP",
+          "customer_id_flag": 0,
+          "is_deleted": false,
+          "description": "ページアクセス日時"
+        },
+        {
+          "column_id": "C053",
+          "logical_name": "ページURL",
+          "physical_name": "page_url",
+          "custom_physical_name": "",
+          "data_type": "VARCHAR(2048)",
+          "customer_id_flag": 0,
+          "is_deleted": false,
+          "description": "閲覧したページのURL"
+        },
+        {
+          "column_id": "C054",
+          "logical_name": "デバイスタイプ",
+          "physical_name": "device_type",
+          "custom_physical_name": "",
+          "data_type": "VARCHAR(20)",
+          "customer_id_flag": 0,
+          "is_deleted": false,
+          "description": "デバイス種別（PC/スマートフォン/タブレット）"
+        },
+        {
+          "column_id": "C055",
+          "logical_name": "参照元",
+          "physical_name": "referrer",
+          "custom_physical_name": "",
+          "data_type": "VARCHAR(2048)",
+          "customer_id_flag": 0,
+          "is_deleted": false,
+          "description": "参照元URL"
+        }
+      ]
+    },
+    {
+      "id": "DS007",
+      "name": "会員ランクマスタ",
+      "description": "会員ランクの定義マスタ。ランク名、条件、割引率等",
+      "schema": "bdash_production",
+      "record_count": 5,
+      "tags": ["ランク", "マスタ", "会員", "ロイヤリティ"],
+      "columns": [
+        {
+          "column_id": "C060",
+          "logical_name": "ランクID",
+          "physical_name": "rank_id",
+          "custom_physical_name": "",
+          "data_type": "INTEGER",
+          "customer_id_flag": 0,
+          "is_deleted": false,
+          "description": "ランクを一意に識別するID"
+        },
+        {
+          "column_id": "C061",
+          "logical_name": "ランク名",
+          "physical_name": "rank_name",
+          "custom_physical_name": "",
+          "data_type": "VARCHAR(50)",
+          "customer_id_flag": 0,
+          "is_deleted": false,
+          "description": "ランク名（ブロンズ/シルバー/ゴールド/プラチナ/ダイヤモンド）"
+        },
+        {
+          "column_id": "C062",
+          "logical_name": "最低購買金額",
+          "physical_name": "min_purchase_amount",
+          "custom_physical_name": "",
+          "data_type": "INTEGER",
+          "customer_id_flag": 0,
+          "is_deleted": false,
+          "description": "このランクに必要な累計購買金額"
+        },
+        {
+          "column_id": "C063",
+          "logical_name": "割引率",
+          "physical_name": "discount_rate",
+          "custom_physical_name": "",
+          "data_type": "DECIMAL(5,2)",
+          "customer_id_flag": 0,
+          "is_deleted": false,
+          "description": "ランクに応じた割引率（%）"
+        }
+      ]
+    },
+    {
+      "id": "DS008",
+      "name": "店舗マスタ",
+      "description": "実店舗およびEC店舗の情報マスタ",
+      "schema": "bdash_production",
+      "record_count": 48,
+      "tags": ["店舗", "マスタ", "エリア"],
+      "columns": [
+        {
+          "column_id": "C070",
+          "logical_name": "店舗ID",
+          "physical_name": "store_id",
+          "custom_physical_name": "",
+          "data_type": "VARCHAR(20)",
+          "customer_id_flag": 0,
+          "is_deleted": false,
+          "description": "店舗を一意に識別するID"
+        },
+        {
+          "column_id": "C071",
+          "logical_name": "店舗名",
+          "physical_name": "store_name",
+          "custom_physical_name": "",
+          "data_type": "VARCHAR(100)",
+          "customer_id_flag": 0,
+          "is_deleted": false,
+          "description": "店舗名"
+        },
+        {
+          "column_id": "C072",
+          "logical_name": "エリア",
+          "physical_name": "region",
+          "custom_physical_name": "",
+          "data_type": "VARCHAR(50)",
+          "customer_id_flag": 0,
+          "is_deleted": false,
+          "description": "店舗のエリア（関東/関西/東北等）"
+        },
+        {
+          "column_id": "C073",
+          "logical_name": "店舗タイプ",
+          "physical_name": "store_type",
+          "custom_physical_name": "",
+          "data_type": "VARCHAR(20)",
+          "customer_id_flag": 0,
+          "is_deleted": false,
+          "description": "店舗種別（実店舗/EC/ポップアップ）"
+        }
+      ]
+    },
+    {
+      "id": "DS009",
+      "name": "問い合わせ履歴",
+      "description": "カスタマーサポートへの問い合わせ履歴。カテゴリ、ステータス、解決日",
+      "schema": "bdash_production",
+      "record_count": 45230,
+      "tags": ["問い合わせ", "CS", "サポート", "対応"],
+      "columns": [
+        {
+          "column_id": "C080",
+          "logical_name": "問い合わせID",
+          "physical_name": "inquiry_id",
+          "custom_physical_name": "",
+          "data_type": "VARCHAR(64)",
+          "customer_id_flag": 0,
+          "is_deleted": false,
+          "description": "問い合わせを一意に識別するID"
+        },
+        {
+          "column_id": "C081",
+          "logical_name": "顧客ID",
+          "physical_name": "customer_id",
+          "custom_physical_name": "",
+          "data_type": "VARCHAR(64)",
+          "customer_id_flag": 1,
+          "is_deleted": false,
+          "description": "問い合わせした顧客のID"
+        },
+        {
+          "column_id": "C082",
+          "logical_name": "問い合わせ日時",
+          "physical_name": "inquiry_date",
+          "custom_physical_name": "",
+          "data_type": "TIMESTAMP",
+          "customer_id_flag": 0,
+          "is_deleted": false,
+          "description": "問い合わせ日時"
+        },
+        {
+          "column_id": "C083",
+          "logical_name": "カテゴリ",
+          "physical_name": "category",
+          "custom_physical_name": "",
+          "data_type": "VARCHAR(50)",
+          "customer_id_flag": 0,
+          "is_deleted": false,
+          "description": "問い合わせカテゴリ（商品/配送/返品/その他）"
+        },
+        {
+          "column_id": "C084",
+          "logical_name": "ステータス",
+          "physical_name": "status",
+          "custom_physical_name": "",
+          "data_type": "VARCHAR(20)",
+          "customer_id_flag": 0,
+          "is_deleted": false,
+          "description": "対応ステータス（対応中/解決済/エスカレーション）"
+        },
+        {
+          "column_id": "C085",
+          "logical_name": "解決日時",
+          "physical_name": "resolution_date",
+          "custom_physical_name": "",
+          "data_type": "TIMESTAMP",
+          "customer_id_flag": 0,
+          "is_deleted": false,
+          "description": "問い合わせが解決された日時"
+        }
+      ]
+    },
+    {
+      "id": "DS010",
+      "name": "解約履歴",
+      "description": "会員の解約（退会）履歴。解約理由、最終購買日等",
+      "schema": "bdash_production",
+      "record_count": 12890,
+      "tags": ["解約", "退会", "離反", "チャーン"],
+      "columns": [
+        {
+          "column_id": "C090",
+          "logical_name": "解約ID",
+          "physical_name": "churn_id",
+          "custom_physical_name": "",
+          "data_type": "VARCHAR(64)",
+          "customer_id_flag": 0,
+          "is_deleted": false,
+          "description": "解約レコードを一意に識別するID"
+        },
+        {
+          "column_id": "C091",
+          "logical_name": "顧客ID",
+          "physical_name": "customer_id",
+          "custom_physical_name": "",
+          "data_type": "VARCHAR(64)",
+          "customer_id_flag": 1,
+          "is_deleted": false,
+          "description": "解約した顧客のID"
+        },
+        {
+          "column_id": "C092",
+          "logical_name": "解約日",
+          "physical_name": "churn_date",
+          "custom_physical_name": "",
+          "data_type": "DATE",
+          "customer_id_flag": 0,
+          "is_deleted": false,
+          "description": "解約日"
+        },
+        {
+          "column_id": "C093",
+          "logical_name": "解約理由",
+          "physical_name": "reason",
+          "custom_physical_name": "",
+          "data_type": "VARCHAR(255)",
+          "customer_id_flag": 0,
+          "is_deleted": false,
+          "description": "解約理由（価格/サービス不満/競合移行/その他）"
+        },
+        {
+          "column_id": "C094",
+          "logical_name": "最終購買日",
+          "physical_name": "last_purchase_date",
+          "custom_physical_name": "",
+          "data_type": "DATE",
+          "customer_id_flag": 0,
+          "is_deleted": false,
+          "description": "解約前の最終購買日"
+        }
+      ]
+    }
+  ]
+}

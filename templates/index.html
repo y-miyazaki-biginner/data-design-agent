@@ -1,0 +1,1146 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>データ設計エージェント</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+
+        header {
+            background: #1a2332;
+            color: white;
+            padding: 20px 30px;
+            border-radius: 12px 12px 0 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+        .header-left h1 { font-size: 24px; font-weight: 600; margin-bottom: 4px; }
+        .header-left p { color: #a0aec0; font-size: 13px; }
+
+        .project-selector {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .project-selector label { color: #a0aec0; font-size: 13px; white-space: nowrap; }
+        .project-selector select {
+            background: #2d3748;
+            color: white;
+            border: 1px solid #4a5568;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            min-width: 200px;
+        }
+        .btn-new-project {
+            background: #48bb78;
+            color: white;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .btn-new-project:hover { background: #38a169; }
+
+        .card {
+            background: white;
+            padding: 30px;
+            border-radius: 0 0 12px 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            min-height: 500px;
+        }
+        .screen { display: none; }
+        .screen.active { display: block; }
+
+        /* Form */
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 6px; font-weight: 600; color: #2d3748; font-size: 14px; }
+        textarea, select, input[type="text"] {
+            width: 100%; padding: 10px; border: 2px solid #e2e8f0; border-radius: 8px;
+            font-size: 14px; transition: border-color 0.3s;
+        }
+        textarea { font-family: monospace; resize: vertical; }
+        textarea:focus, select:focus, input:focus { outline: none; border-color: #667eea; }
+
+        /* Search bar (Redash style) */
+        .search-section { margin-bottom: 24px; }
+        .search-bar {
+            display: flex; gap: 10px; align-items: stretch;
+        }
+        .search-input-wrap {
+            flex: 1; position: relative;
+        }
+        .search-input-wrap input {
+            width: 100%; padding: 14px 16px 14px 44px; border: 2px solid #e2e8f0; border-radius: 10px;
+            font-size: 15px; transition: border-color 0.3s, box-shadow 0.3s;
+        }
+        .search-input-wrap input:focus { border-color: #667eea; box-shadow: 0 0 0 3px rgba(102,126,234,0.15); }
+        .search-input-wrap .search-icon {
+            position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+            font-size: 18px; color: #a0aec0;
+        }
+        .btn-search {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;
+            padding: 0 28px; border: none; border-radius: 10px; font-size: 15px; font-weight: 600;
+            cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 15px rgba(102,126,234,0.4); white-space: nowrap;
+        }
+        .btn-search:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(102,126,234,0.6); }
+        .btn-search:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .search-hint {
+            margin-top: 8px; font-size: 12px; color: #a0aec0;
+        }
+        .search-hint a { color: #667eea; cursor: pointer; text-decoration: none; }
+        .search-hint a:hover { text-decoration: underline; }
+
+        /* Search progress */
+        .search-progress {
+            display: none; margin-top: 16px; padding: 20px; background: #f7fafc;
+            border: 2px solid #e2e8f0; border-radius: 10px; text-align: center;
+        }
+        .search-progress.visible { display: block; }
+        .search-progress .spinner {
+            display: inline-block; width: 24px; height: 24px; border: 3px solid #e2e8f0;
+            border-top-color: #667eea; border-radius: 50%; animation: spin 0.8s linear infinite;
+            vertical-align: middle; margin-right: 10px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .search-progress .progress-text { color: #4a5568; font-size: 14px; font-weight: 500; }
+
+        /* Search results */
+        .search-results { display: none; margin-top: 20px; }
+        .search-results.visible { display: block; }
+        .search-results-header {
+            display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;
+        }
+        .search-results-header h3 { font-size: 16px; color: #2d3748; }
+        .search-results-header .result-count { color: #718096; font-size: 13px; }
+
+        .result-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+        .result-card {
+            border: 2px solid #e2e8f0; border-radius: 10px; padding: 16px; cursor: pointer;
+            transition: all 0.2s; position: relative;
+        }
+        .result-card:hover { border-color: #667eea; background: #f7fafc; }
+        .result-card.selected { border-color: #667eea; background: #eef2ff; }
+        .result-card .card-check {
+            position: absolute; top: 12px; right: 12px; width: 22px; height: 22px;
+            border: 2px solid #cbd5e0; border-radius: 6px; display: flex; align-items: center;
+            justify-content: center; font-size: 14px; color: transparent; transition: all 0.2s;
+        }
+        .result-card.selected .card-check { background: #667eea; border-color: #667eea; color: white; }
+        .result-card .card-title {
+            font-size: 15px; font-weight: 600; color: #2d3748; margin-bottom: 4px; padding-right: 30px;
+        }
+        .result-card .card-desc { font-size: 12px; color: #718096; margin-bottom: 8px; }
+        .result-card .card-meta { display: flex; gap: 8px; flex-wrap: wrap; }
+        .card-score {
+            display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 700;
+        }
+        .score-high { background: #c6f6d5; color: #2f855a; }
+        .score-mid { background: #fefcbf; color: #975a16; }
+        .score-low { background: #fed7d7; color: #c53030; }
+        .card-tag {
+            display: inline-block; padding: 2px 8px; border-radius: 10px;
+            font-size: 11px; background: #edf2f7; color: #4a5568;
+        }
+        .card-reason { font-size: 12px; color: #667eea; margin-top: 6px; font-style: italic; }
+        .card-columns {
+            margin-top: 8px; font-size: 11px; color: #a0aec0;
+        }
+
+        /* Preview (for after table selection) */
+        .preview-section { display: none; margin-top: 20px; border: 2px solid #e2e8f0; border-radius: 12px; overflow: hidden; }
+        .preview-section.visible { display: block; }
+        .preview-header { background: #f7fafc; padding: 12px 16px; border-bottom: 2px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; }
+        .preview-header h3 { font-size: 15px; color: #2d3748; }
+        .preview-stats { display: flex; gap: 10px; }
+        .stat-badge { background: #667eea; color: white; padding: 3px 10px; border-radius: 10px; font-size: 12px; font-weight: 600; }
+        .preview-table-wrap { max-height: 300px; overflow-y: auto; }
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #f7fafc; padding: 8px 10px; text-align: left; font-weight: 600; color: #2d3748; border-bottom: 2px solid #e2e8f0; font-size: 12px; }
+        td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; color: #4a5568; font-size: 12px; }
+        tr:hover { background: #f7fafc; }
+        .deleted-row { opacity: 0.4; text-decoration: line-through; }
+        .flag-badge { display: inline-block; padding: 1px 6px; border-radius: 8px; font-size: 10px; font-weight: 600; }
+        .flag-yes { background: #fed7d7; color: #c53030; }
+        .flag-no { background: #e2e8f0; color: #718096; }
+
+        /* Buttons */
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;
+            padding: 12px 28px; border: none; border-radius: 8px; font-size: 15px; font-weight: 600;
+            cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 15px rgba(102,126,234,0.4);
+        }
+        .btn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(102,126,234,0.6); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .btn-secondary { background: #718096; box-shadow: 0 4px 15px rgba(113,128,150,0.3); margin-left: 8px; }
+        .btn-confirm { background: linear-gradient(135deg, #48bb78, #38a169); box-shadow: 0 4px 15px rgba(72,187,120,0.4); }
+        .btn-confirm:hover { box-shadow: 0 6px 20px rgba(72,187,120,0.6); }
+        .btn-excel { background: linear-gradient(135deg, #38a169, #2f855a); box-shadow: 0 4px 15px rgba(56,161,105,0.4); }
+        .btn-excel:hover { box-shadow: 0 6px 20px rgba(56,161,105,0.6); }
+        .btn-sm { padding: 8px 16px; font-size: 13px; }
+
+        /* Progress */
+        .progress-container { padding: 30px 0; }
+        .progress-step { display: flex; align-items: center; margin-bottom: 30px; position: relative; }
+        .progress-step:not(:last-child)::after { content: ''; position: absolute; left: 22px; top: 48px; width: 2px; height: 40px; background: #e2e8f0; }
+        .progress-step.active::after { background: #667eea; }
+        .progress-step.completed::after { background: #48bb78; }
+        .step-icon {
+            width: 44px; height: 44px; border-radius: 50%; background: #e2e8f0;
+            display: flex; align-items: center; justify-content: center; font-weight: bold;
+            color: #718096; margin-right: 16px; flex-shrink: 0; transition: all 0.3s;
+        }
+        .progress-step.active .step-icon { background: #667eea; color: white; animation: pulse 1.5s infinite; }
+        .progress-step.completed .step-icon { background: #48bb78; color: white; }
+        @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+        .step-content h3 { font-size: 16px; color: #2d3748; margin-bottom: 3px; }
+        .step-content p { color: #718096; font-size: 13px; }
+
+        /* Tabs */
+        .tabs { display: flex; border-bottom: 2px solid #e2e8f0; margin-bottom: 20px; }
+        .tab {
+            padding: 10px 20px; cursor: pointer; border-bottom: 3px solid transparent;
+            margin-bottom: -2px; color: #718096; font-weight: 600; transition: all 0.3s; font-size: 14px;
+        }
+        .tab:hover { color: #667eea; }
+        .tab.active { color: #667eea; border-bottom-color: #667eea; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.3s; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* Status badges */
+        .status-badge {
+            display: inline-block; padding: 3px 10px; border-radius: 10px;
+            font-size: 12px; font-weight: 600;
+        }
+        .status-draft { background: #fefcbf; color: #744210; }
+        .status-confirmed { background: #c6f6d5; color: #2f855a; }
+
+        /* Result: design table */
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+        .badge-nullable { background: #fed7d7; color: #c53030; }
+        .badge-not-null { background: #c6f6d5; color: #2f855a; }
+
+        .result-source-info {
+            background: #eef2ff; border: 1px solid #c3dafe; border-radius: 8px;
+            padding: 12px 16px; margin-bottom: 20px; font-size: 13px; color: #434190;
+        }
+        .result-source-info strong { color: #3730a3; }
+
+        /* Step item (accordion) */
+        .step-accordion { margin-bottom: 16px; border: 2px solid #e2e8f0; border-radius: 10px; overflow: hidden; }
+        .step-accordion-header {
+            display: flex; align-items: center; padding: 14px 16px; background: #f7fafc;
+            cursor: pointer; user-select: none; gap: 12px;
+        }
+        .step-accordion-header:hover { background: #edf2f7; }
+        .step-num {
+            background: #667eea; color: white; width: 32px; height: 32px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0;
+        }
+        .step-accordion-header h4 { flex: 1; font-size: 15px; color: #2d3748; }
+        .step-toggle { color: #718096; font-size: 18px; transition: transform 0.3s; }
+        .step-accordion.open .step-toggle { transform: rotate(180deg); }
+
+        .step-accordion-body { display: none; padding: 16px; border-top: 2px solid #e2e8f0; }
+        .step-accordion.open .step-accordion-body { display: block; }
+
+        .step-section { margin-bottom: 16px; }
+        .step-section-title {
+            font-size: 13px; font-weight: 600; color: #667eea; margin-bottom: 6px;
+            display: flex; align-items: center; gap: 6px;
+        }
+
+        .bdash-path {
+            background: #eef2ff; border: 1px solid #c3dafe; border-radius: 6px;
+            padding: 10px 14px; font-size: 13px; color: #434190;
+        }
+        .bdash-path strong { color: #3730a3; }
+        .bdash-settings { margin-top: 6px; }
+        .bdash-settings li { color: #4a5568; font-size: 12px; margin-left: 16px; }
+        .gui-steps-list { margin: 0; padding-left: 24px; }
+        .gui-steps-list li {
+            color: #2d3748; font-size: 13px; line-height: 1.8; padding: 4px 0;
+            border-bottom: 1px dashed #e2e8f0;
+        }
+        .gui-steps-list li:last-child { border-bottom: none; }
+
+        .validation-box {
+            background: #fffbeb; border: 1px solid #fbd38d; border-radius: 8px; padding: 14px;
+        }
+        .validation-item { margin-bottom: 8px; font-size: 13px; }
+        .validation-item strong { color: #744210; }
+        .validation-item .val-label { color: #975a16; font-weight: 600; font-size: 12px; }
+        .customer-explanation {
+            background: #f0fff4; border: 1px solid #c6f6d5; border-radius: 6px;
+            padding: 10px; margin-top: 8px; font-size: 12px; color: #2f855a; font-style: italic;
+        }
+
+        /* Data flow diagram */
+        .flow-diagram {
+            background: #f7fafc; border: 2px solid #e2e8f0; border-radius: 10px;
+            padding: 20px; margin-top: 10px;
+        }
+        .flow-step {
+            display: flex; align-items: center; gap: 12px; margin-bottom: 8px;
+            flex-wrap: wrap;
+        }
+        .flow-step:last-child { margin-bottom: 0; }
+        .flow-arrow {
+            display: flex; flex-direction: column; align-items: center; padding: 6px 0;
+            color: #667eea; font-size: 20px; font-weight: bold;
+        }
+        .flow-node {
+            display: inline-block; padding: 8px 14px; border-radius: 8px;
+            font-size: 13px; font-weight: 600;
+        }
+        .flow-node-input { background: #eef2ff; border: 1px solid #c3dafe; color: #434190; }
+        .flow-node-output { background: #e8f5e9; border: 1px solid #a5d6a7; color: #2e7d32; }
+        .flow-node-op {
+            background: #fff8e1; border: 1px solid #fbd38d; color: #975a16;
+            font-weight: 500; font-size: 12px; padding: 6px 12px;
+        }
+        .flow-row {
+            display: flex; align-items: center; gap: 10px; padding: 10px 0;
+            border-bottom: 1px dashed #e2e8f0;
+        }
+        .flow-row:last-child { border-bottom: none; }
+        .flow-num {
+            background: #667eea; color: white; width: 24px; height: 24px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; font-weight: 700;
+            font-size: 12px; flex-shrink: 0;
+        }
+        .flow-content { flex: 1; font-size: 13px; color: #2d3748; }
+        .flow-content .flow-from { color: #434190; font-weight: 600; }
+        .flow-content .flow-op { color: #975a16; }
+        .flow-content .flow-to { color: #2f855a; font-weight: 600; }
+
+        /* Feedback area */
+        .feedback-area {
+            background: #f7fafc; border: 2px solid #e2e8f0; border-radius: 10px;
+            padding: 16px; margin-top: 20px;
+        }
+        .feedback-area h3 { font-size: 15px; color: #2d3748; margin-bottom: 10px; }
+        .feedback-area textarea { min-height: 80px; }
+
+        .button-group { margin-top: 20px; padding-top: 20px; border-top: 2px solid #e2e8f0; display: flex; flex-wrap: wrap; gap: 8px; }
+
+        /* Modal */
+        .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;
+        }
+        .modal-overlay.show { display: flex; }
+        .modal {
+            background: white; border-radius: 12px; padding: 30px; max-width: 450px; width: 90%;
+        }
+        .modal h3 { margin-bottom: 16px; color: #2d3748; }
+        .modal input { margin-bottom: 12px; }
+        .modal-actions { display: flex; gap: 8px; margin-top: 16px; }
+
+        @media (max-width: 768px) {
+            .card { padding: 16px; }
+            header { padding: 16px; }
+            .btn { width: 100%; margin: 4px 0; }
+            .btn-secondary { margin-left: 0; }
+            .search-bar { flex-direction: column; }
+            .result-cards { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-left">
+                <h1>データ設計エージェント</h1>
+                <p>自然言語でデータソースを検索し、b→dashのGUI操作手順を自動生成</p>
+            </div>
+            <div class="project-selector">
+                <label>案件:</label>
+                <select id="projectSelect" onchange="onProjectChange()">
+                    <option value="">案件を選択...</option>
+                </select>
+                <button class="btn-new-project" onclick="showNewProjectModal()">+ 新規案件</button>
+            </div>
+        </header>
+
+        <div class="card">
+            <!-- Screen 1: Search & Select -->
+            <div id="screen1" class="screen active">
+                <div class="search-section">
+                    <label>データソースを検索（Redash連携）</label>
+                    <div class="search-bar">
+                        <div class="search-input-wrap">
+                            <span class="search-icon">&#128269;</span>
+                            <input type="text" id="searchInput" placeholder="例: 顧客の月次購買を集計したい、メール配信のクリック率を分析..." onkeydown="if(event.key==='Enter') doSearch()">
+                        </div>
+                        <button class="btn-search" id="searchBtn" onclick="doSearch()">Redash検索</button>
+                    </div>
+                    <div class="search-hint">
+                        <span>自然言語で分析したい内容を入力すると、関連するデータソースを自動で検出します</span>
+                        <span style="margin: 0 8px;">|</span>
+                        <a onclick="showAllCatalog()">全データソースを表示</a>
+                    </div>
+                </div>
+
+                <!-- Search progress -->
+                <div class="search-progress" id="searchProgress">
+                    <span class="spinner"></span>
+                    <span class="progress-text" id="searchProgressText">Redashに接続中...</span>
+                </div>
+
+                <!-- Search results -->
+                <div class="search-results" id="searchResults">
+                    <div class="search-results-header">
+                        <h3 id="searchResultsTitle">検索結果</h3>
+                        <span class="result-count" id="resultCount"></span>
+                    </div>
+                    <div class="result-cards" id="resultCards"></div>
+                </div>
+
+                <!-- Column preview (after selection) -->
+                <div class="preview-section" id="previewSection">
+                    <div class="preview-header">
+                        <h3>カラム定義プレビュー</h3>
+                        <div class="preview-stats">
+                            <span class="stat-badge" id="statTables">0 テーブル</span>
+                            <span class="stat-badge" id="statColumns">0 カラム</span>
+                            <span class="stat-badge" id="statActive">0 有効</span>
+                        </div>
+                    </div>
+                    <div class="preview-table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>データファイル名</th>
+                                    <th>カラム論理名</th>
+                                    <th>カラム物理名</th>
+                                    <th>カスタム物理名</th>
+                                    <th>顧客IDフラグ</th>
+                                    <th>状態</th>
+                                </tr>
+                            </thead>
+                            <tbody id="previewBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="form-group" id="requirementsGroup" style="display:none; margin-top: 20px;">
+                    <label for="requirements">要件（検索クエリから自動入力済み。必要に応じて編集してください）</label>
+                    <textarea id="requirements" rows="3" placeholder="例: ユーザーの月次アクティブ率を集計したい、購買データと顧客マスタを結合して分析したい..."></textarea>
+                </div>
+
+                <div id="generateBtnWrap" style="display:none; margin-top: 16px;">
+                    <button class="btn" id="generateBtn" onclick="startGeneration()" disabled>提案を生成する</button>
+                    <span id="selectionHint" style="margin-left: 10px; color: #718096; font-size: 13px;">対象テーブルを選択してください</span>
+                </div>
+            </div>
+
+            <!-- Screen 2: Loading -->
+            <div id="screen2" class="screen">
+                <div class="progress-container">
+                    <div class="progress-step" id="pstep1">
+                        <div class="step-icon">1</div>
+                        <div class="step-content">
+                            <h3>データ定義を取得中...</h3>
+                            <p>Redashからデータソースのカラム定義を取得しています</p>
+                        </div>
+                    </div>
+                    <div class="progress-step" id="pstep2">
+                        <div class="step-icon">2</div>
+                        <div class="step-content">
+                            <h3>データ設計・実装手順を生成中...</h3>
+                            <p>b→dashのGUI操作手順と検証観点を構築しています</p>
+                        </div>
+                    </div>
+                    <div class="progress-step" id="pstep3">
+                        <div class="step-icon">3</div>
+                        <div class="step-content">
+                            <h3>提案を整理中...</h3>
+                            <p>過去のフィードバックと類似パターンを反映しています</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Screen 3: Results (Proposal) -->
+            <div id="screen3" class="screen">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                    <h2 style="font-size: 20px; color: #2d3748;">生成結果</h2>
+                    <span class="status-badge" id="statusBadge">提案中</span>
+                </div>
+
+                <div class="result-source-info" id="resultSourceInfo"></div>
+
+                <!-- Feedback applied -->
+                <div id="feedbackApplied" style="display:none; margin-bottom: 16px; background: #f0fff4; border: 1px solid #c6f6d5; border-radius: 8px; padding: 12px;">
+                    <strong style="color: #2f855a;">過去のフィードバック反映済み:</strong>
+                    <ul id="feedbackAppliedList" style="margin-top: 4px; margin-left: 16px; color: #276749; font-size: 13px;"></ul>
+                </div>
+
+                <div class="tabs">
+                    <div class="tab active" onclick="switchTab('design', event)">データ設計</div>
+                    <div class="tab" onclick="switchTab('steps', event)">実装手順＋検証観点</div>
+                    <div class="tab" onclick="switchTab('flow', event)">データフロー</div>
+                </div>
+
+                <!-- Tab: Data Design -->
+                <div id="tab-design" class="tab-content active">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ソーステーブル</th>
+                                <th>カラム論理名</th>
+                                <th>カラム物理名</th>
+                                <th>推定型</th>
+                                <th>NULL許可</th>
+                                <th>備考</th>
+                            </tr>
+                        </thead>
+                        <tbody id="designBody"></tbody>
+                    </table>
+                </div>
+
+                <!-- Tab: Steps + Validation -->
+                <div id="tab-steps" class="tab-content">
+                    <div id="stepsContainer"></div>
+                </div>
+
+                <!-- Tab: Data Flow -->
+                <div id="tab-flow" class="tab-content">
+                    <div id="flowContainer"></div>
+                </div>
+
+                <!-- Feedback area (shown when draft) -->
+                <div class="feedback-area" id="feedbackArea">
+                    <h3>修正指示</h3>
+                    <p style="font-size: 13px; color: #718096; margin-bottom: 10px;">提案内容に修正が必要な場合は、指示を入力してください。</p>
+                    <textarea id="feedbackInput" rows="3" placeholder="例: ステップ2の結合条件を左外部結合に変更してほしい"></textarea>
+                    <div style="margin-top: 10px; display: flex; gap: 8px;">
+                        <button class="btn btn-sm" onclick="submitFeedback()">修正を反映</button>
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button class="btn btn-confirm" id="confirmBtn" onclick="confirmResult()">この内容で確定する</button>
+                    <button class="btn btn-excel" onclick="downloadExcel()">Excelダウンロード</button>
+                    <button class="btn" onclick="downloadCSV()">CSVダウンロード</button>
+                    <button class="btn btn-secondary" onclick="resetApp()">やり直す</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Project Modal -->
+    <div class="modal-overlay" id="newProjectModal">
+        <div class="modal">
+            <h3>新規案件作成</h3>
+            <label>案件名 <span style="color:#e53e3e">*</span></label>
+            <input type="text" id="newProjectName" placeholder="例: A社 EC分析基盤">
+            <label>クライアント名</label>
+            <input type="text" id="newProjectClient" placeholder="例: 株式会社A">
+            <label>説明</label>
+            <input type="text" id="newProjectDesc" placeholder="例: 月次売上レポート構築">
+            <div class="modal-actions">
+                <button class="btn btn-sm" onclick="createProject()">作成</button>
+                <button class="btn btn-sm btn-secondary" onclick="closeModal()">キャンセル</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // === State ===
+        let parsedData = null;
+        let selectedTables = new Set();
+        let currentResult = null;
+        let currentProjectId = null;
+        let searchResultData = [];
+
+        // === Init ===
+        document.addEventListener('DOMContentLoaded', () => {
+            loadProjects();
+        });
+
+        // === Projects ===
+        async function loadProjects() {
+            try {
+                const res = await fetch('/api/projects');
+                const projects = await res.json();
+                const sel = document.getElementById('projectSelect');
+                sel.innerHTML = '<option value="">案件を選択...</option>';
+                projects.forEach(p => {
+                    const opt = document.createElement('option');
+                    opt.value = p.id;
+                    opt.textContent = p.client_name ? `${p.name} (${p.client_name})` : p.name;
+                    sel.appendChild(opt);
+                });
+            } catch (e) {
+                console.error('Failed to load projects:', e);
+            }
+        }
+
+        function onProjectChange() {
+            currentProjectId = document.getElementById('projectSelect').value || null;
+            updateGenerateButton();
+        }
+
+        function showNewProjectModal() {
+            document.getElementById('newProjectModal').classList.add('show');
+        }
+
+        function closeModal() {
+            document.getElementById('newProjectModal').classList.remove('show');
+        }
+
+        async function createProject() {
+            const name = document.getElementById('newProjectName').value.trim();
+            if (!name) { alert('案件名を入力してください'); return; }
+
+            const fd = new FormData();
+            fd.append('name', name);
+            fd.append('client_name', document.getElementById('newProjectClient').value.trim());
+            fd.append('description', document.getElementById('newProjectDesc').value.trim());
+
+            const res = await fetch('/api/projects', { method: 'POST', body: fd });
+            const data = await res.json();
+            closeModal();
+            await loadProjects();
+            document.getElementById('projectSelect').value = data.id;
+            currentProjectId = data.id;
+            document.getElementById('newProjectName').value = '';
+            document.getElementById('newProjectClient').value = '';
+            document.getElementById('newProjectDesc').value = '';
+            updateGenerateButton();
+        }
+
+        // === Search ===
+        async function doSearch() {
+            const query = document.getElementById('searchInput').value.trim();
+            if (!query) { alert('検索キーワードを入力してください'); return; }
+
+            // Show progress
+            const progress = document.getElementById('searchProgress');
+            const progressText = document.getElementById('searchProgressText');
+            progress.classList.add('visible');
+            document.getElementById('searchResults').classList.remove('visible');
+            document.getElementById('previewSection').classList.remove('visible');
+            document.getElementById('requirementsGroup').style.display = 'none';
+            document.getElementById('generateBtnWrap').style.display = 'none';
+            document.getElementById('searchBtn').disabled = true;
+
+            // Redash connection animation
+            progressText.textContent = 'Redashに接続中...';
+            await sleep(800);
+            progressText.textContent = 'データソースをスキャン中...';
+
+            try {
+                const fd = new FormData();
+                fd.append('query', query);
+                const res = await fetch('/api/search', { method: 'POST', body: fd });
+                const data = await res.json();
+
+                progressText.textContent = '関連テーブルを特定しました';
+                await sleep(500);
+
+                progress.classList.remove('visible');
+                document.getElementById('searchBtn').disabled = false;
+
+                // Show results
+                searchResultData = data.results || [];
+                showSearchResults(searchResultData, query);
+
+                // Pre-fill requirements
+                document.getElementById('requirements').value = query;
+
+            } catch (e) {
+                progress.classList.remove('visible');
+                document.getElementById('searchBtn').disabled = false;
+                alert('検索エラー: ' + e.message);
+            }
+        }
+
+        async function showAllCatalog() {
+            const progress = document.getElementById('searchProgress');
+            const progressText = document.getElementById('searchProgressText');
+            progress.classList.add('visible');
+            progressText.textContent = 'データカタログを取得中...';
+
+            try {
+                const res = await fetch('/api/catalog');
+                const data = await res.json();
+
+                progress.classList.remove('visible');
+
+                // Convert to search result format
+                searchResultData = data.map(d => ({
+                    name: d.name,
+                    description: d.description,
+                    relevance_score: null,
+                    reason: '',
+                    record_count: d.record_count,
+                    tags: d.tags || [],
+                    column_count: d.column_count,
+                }));
+                showSearchResults(searchResultData, null, true);
+            } catch (e) {
+                progress.classList.remove('visible');
+                alert('カタログ取得エラー: ' + e.message);
+            }
+        }
+
+        function showSearchResults(results, query, isCatalog = false) {
+            const container = document.getElementById('resultCards');
+            container.innerHTML = '';
+            selectedTables.clear();
+
+            document.getElementById('searchResultsTitle').textContent = isCatalog ? '全データソース一覧' : '検索結果';
+            document.getElementById('resultCount').textContent = `${results.length} 件のデータソースが見つかりました`;
+
+            results.forEach(r => {
+                const card = document.createElement('div');
+                card.className = 'result-card';
+                card.dataset.tableName = r.name;
+
+                // Auto-select if high relevance
+                if (r.relevance_score !== null && r.relevance_score >= 0.7) {
+                    card.classList.add('selected');
+                    selectedTables.add(r.name);
+                }
+
+                let scoreHtml = '';
+                if (r.relevance_score !== null) {
+                    const scoreClass = r.relevance_score >= 0.7 ? 'score-high' : r.relevance_score >= 0.4 ? 'score-mid' : 'score-low';
+                    scoreHtml = `<span class="card-score ${scoreClass}">関連度 ${(r.relevance_score * 100).toFixed(0)}%</span>`;
+                }
+
+                const tagsHtml = (r.tags || []).map(t => `<span class="card-tag">${t}</span>`).join('');
+
+                card.innerHTML = `
+                    <div class="card-check">&#10003;</div>
+                    <div class="card-title">${r.name}</div>
+                    <div class="card-desc">${r.description || ''}</div>
+                    <div class="card-meta">
+                        ${scoreHtml}
+                        ${tagsHtml}
+                        ${r.record_count ? `<span class="card-tag">${r.record_count.toLocaleString()} 件</span>` : ''}
+                        ${r.column_count ? `<span class="card-tag">${r.column_count} カラム</span>` : ''}
+                    </div>
+                    ${r.reason ? `<div class="card-reason">${r.reason}</div>` : ''}
+                    ${r.matched_columns && r.matched_columns.length ? `<div class="card-columns">関連カラム: ${r.matched_columns.join(', ')}</div>` : ''}
+                `;
+
+                card.onclick = () => toggleTableCard(card, r.name);
+                container.appendChild(card);
+            });
+
+            document.getElementById('searchResults').classList.add('visible');
+
+            // If we have auto-selected tables, load their columns
+            if (selectedTables.size > 0) {
+                loadSelectedColumns();
+            }
+
+            document.getElementById('requirementsGroup').style.display = 'block';
+            document.getElementById('generateBtnWrap').style.display = 'block';
+            updateGenerateButton();
+        }
+
+        function toggleTableCard(card, tableName) {
+            if (selectedTables.has(tableName)) {
+                selectedTables.delete(tableName);
+                card.classList.remove('selected');
+            } else {
+                selectedTables.add(tableName);
+                card.classList.add('selected');
+            }
+            updateGenerateButton();
+            if (selectedTables.size > 0) {
+                loadSelectedColumns();
+            } else {
+                document.getElementById('previewSection').classList.remove('visible');
+                parsedData = null;
+            }
+        }
+
+        async function loadSelectedColumns() {
+            try {
+                const fd = new FormData();
+                fd.append('table_names', JSON.stringify([...selectedTables]));
+                const res = await fetch('/api/catalog/select', { method: 'POST', body: fd });
+                parsedData = await res.json();
+                showPreview();
+            } catch (e) {
+                console.error('カラム取得エラー:', e);
+            }
+        }
+
+        function showPreview() {
+            if (!parsedData) return;
+            const section = document.getElementById('previewSection');
+            section.classList.add('visible');
+
+            document.getElementById('statTables').textContent = parsedData.data_files.length + ' テーブル';
+            document.getElementById('statColumns').textContent = parsedData.total_columns + ' カラム';
+            document.getElementById('statActive').textContent = parsedData.total_active + ' 有効';
+
+            renderPreviewTable();
+        }
+
+        function renderPreviewTable() {
+            if (!parsedData) return;
+            const tbody = document.getElementById('previewBody');
+            tbody.innerHTML = '';
+
+            parsedData.all_columns.forEach(c => {
+                const tr = document.createElement('tr');
+                if (c.is_deleted) tr.classList.add('deleted-row');
+                tr.innerHTML = `
+                    <td>${c.data_file_name}</td>
+                    <td>${c.logical_name}</td>
+                    <td><strong>${c.physical_name}</strong></td>
+                    <td>${c.custom_physical_name ? '<strong>'+c.custom_physical_name+'</strong>' : '<span style="color:#cbd5e0">-</span>'}</td>
+                    <td><span class="flag-badge ${c.customer_id_flag ? 'flag-yes' : 'flag-no'}">${c.customer_id_flag ? 'YES' : '-'}</span></td>
+                    <td>${c.is_deleted ? '<span style="color:#e53e3e;font-weight:600">削除済</span>' : '<span style="color:#48bb78;font-weight:600">有効</span>'}</td>`;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function updateGenerateButton() {
+            const btn = document.getElementById('generateBtn');
+            const hint = document.getElementById('selectionHint');
+            const hasProject = !!currentProjectId;
+            if (selectedTables.size > 0 && hasProject) {
+                btn.disabled = false;
+                hint.textContent = `${selectedTables.size} テーブル選択中`;
+                hint.style.color = '#48bb78';
+            } else if (selectedTables.size > 0 && !hasProject) {
+                btn.disabled = true;
+                hint.textContent = '案件を選択してください';
+                hint.style.color = '#e53e3e';
+            } else {
+                btn.disabled = true;
+                hint.textContent = '対象テーブルを選択してください';
+                hint.style.color = '#718096';
+            }
+        }
+
+        // === Generation ===
+        async function startGeneration() {
+            const req = document.getElementById('requirements').value.trim();
+            if (!req) { alert('要件を入力してください'); return; }
+            if (!currentProjectId) { alert('案件を選択してください'); return; }
+
+            showScreen('screen2');
+            activateStep(1);
+
+            const fd = new FormData();
+            fd.append('project_id', currentProjectId);
+            fd.append('requirement', req);
+            fd.append('selected_tables', JSON.stringify([...selectedTables]));
+
+            try {
+                activateStep(2);
+                const res = await fetch('/api/generate/propose', { method: 'POST', body: fd });
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.detail || 'Generation failed');
+                }
+                activateStep(3);
+                currentResult = await res.json();
+                completeAllSteps();
+                setTimeout(() => showResults(), 500);
+            } catch (e) {
+                alert('生成エラー: ' + e.message);
+                showScreen('screen1');
+            }
+        }
+
+        function activateStep(n) {
+            for (let i = 1; i <= 3; i++) {
+                const el = document.getElementById('pstep' + i);
+                el.classList.remove('active', 'completed');
+                if (i < n) el.classList.add('completed');
+                else if (i === n) el.classList.add('active');
+            }
+        }
+
+        function completeAllSteps() {
+            for (let i = 1; i <= 3; i++) {
+                document.getElementById('pstep' + i).classList.remove('active');
+                document.getElementById('pstep' + i).classList.add('completed');
+            }
+        }
+
+        // === Results ===
+        function showResults() {
+            if (!currentResult) return;
+            const isConfirmed = currentResult.status === 'confirmed';
+
+            // Status badge
+            const badge = document.getElementById('statusBadge');
+            badge.textContent = isConfirmed ? '確定済み' : '提案中';
+            badge.className = 'status-badge ' + (isConfirmed ? 'status-confirmed' : 'status-draft');
+
+            // Source info
+            document.getElementById('resultSourceInfo').innerHTML =
+                `<strong>案件:</strong> ${document.getElementById('projectSelect').selectedOptions[0]?.text || '-'}` +
+                ` | <strong>対象テーブル:</strong> ${[...selectedTables].join(', ')}`;
+
+            // Feedback applied
+            const fbApplied = currentResult.feedback_applied || [];
+            const fbDiv = document.getElementById('feedbackApplied');
+            if (fbApplied.length > 0) {
+                fbDiv.style.display = 'block';
+                document.getElementById('feedbackAppliedList').innerHTML =
+                    fbApplied.map(f => `<li>${f}</li>`).join('');
+            } else {
+                fbDiv.style.display = 'none';
+            }
+
+            // Design table
+            renderDesignTable();
+
+            // Steps
+            renderSteps();
+
+            // Data flow
+            renderDataFlow();
+
+            // Feedback area visibility
+            document.getElementById('feedbackArea').style.display = isConfirmed ? 'none' : 'block';
+            document.getElementById('confirmBtn').style.display = isConfirmed ? 'none' : 'inline-block';
+
+            showScreen('screen3');
+        }
+
+        function renderDesignTable() {
+            const tbody = document.getElementById('designBody');
+            tbody.innerHTML = '';
+            (currentResult.data_design || []).forEach(col => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${col.source_table || ''}</td>
+                    <td>${col.logical_name || ''}</td>
+                    <td><strong>${col.physical_name || ''}</strong></td>
+                    <td>${col.estimated_type || ''}</td>
+                    <td><span class="badge ${col.nullable ? 'badge-nullable' : 'badge-not-null'}">${col.nullable ? 'NULLABLE' : 'NOT NULL'}</span></td>
+                    <td>${col.note || ''}</td>`;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderSteps() {
+            const container = document.getElementById('stepsContainer');
+            container.innerHTML = '';
+
+            (currentResult.implementation_steps || []).forEach((step, i) => {
+                const bdash = step.bdash_operation || {};
+                const val = step.validation || {};
+
+                const div = document.createElement('div');
+                div.className = 'step-accordion' + (i === 0 ? ' open' : '');
+                div.innerHTML = `
+                    <div class="step-accordion-header" onclick="this.parentElement.classList.toggle('open')">
+                        <span class="step-num">${step.step_number || i+1}</span>
+                        <h4>${step.title || 'ステップ ' + (i+1)}</h4>
+                        <span class="step-toggle">&#9660;</span>
+                    </div>
+                    <div class="step-accordion-body">
+                        <p style="color:#4a5568; margin-bottom:14px; font-size:13px;">${step.description || ''}</p>
+
+                        ${bdash.gui_steps && bdash.gui_steps.length ? `
+                        <div class="step-section">
+                            <div class="step-section-title">b→dash GUI操作手順</div>
+                            <div class="bdash-path">
+                                <ol class="gui-steps-list">
+                                    ${bdash.gui_steps.map(s => `<li>${s}</li>`).join('')}
+                                </ol>
+                            </div>
+                        </div>` : bdash.gui_path ? `
+                        <div class="step-section">
+                            <div class="step-section-title">b→dash GUI操作</div>
+                            <div class="bdash-path">
+                                <strong>${bdash.gui_path}</strong>
+                                ${bdash.settings && bdash.settings.length ? '<ul class="bdash-settings">' + bdash.settings.map(s => `<li>${s}</li>`).join('') + '</ul>' : ''}
+                            </div>
+                        </div>` : ''}
+
+                        ${val.what_to_check ? `
+                        <div class="step-section">
+                            <div class="step-section-title">検証観点</div>
+                            <div class="validation-box">
+                                <div class="validation-item"><span class="val-label">確認内容:</span> ${val.what_to_check}</div>
+                                ${val.how_to_check ? `<div class="validation-item"><span class="val-label">確認手順:</span> ${val.how_to_check}</div>` : ''}
+                                ${val.expected_result ? `<div class="validation-item"><span class="val-label">期待値:</span> ${val.expected_result}</div>` : ''}
+                                ${val.ng_action ? `<div class="validation-item"><span class="val-label">NG時対処:</span> ${val.ng_action}</div>` : ''}
+                                ${val.customer_explanation ? `<div class="customer-explanation"><strong>顧客説明:</strong> ${val.customer_explanation}</div>` : ''}
+                            </div>
+                        </div>` : ''}
+                    </div>`;
+                container.appendChild(div);
+            });
+        }
+
+        function renderDataFlow() {
+            const container = document.getElementById('flowContainer');
+            container.innerHTML = '';
+
+            const flows = currentResult.data_flow || [];
+            if (flows.length === 0) {
+                container.innerHTML = '<p style="color: #a0aec0; text-align: center; padding: 30px;">データフロー情報はありません</p>';
+                return;
+            }
+
+            // Visual flow diagram
+            let html = '<div class="flow-diagram">';
+            html += '<h4 style="font-size: 14px; color: #2d3748; margin-bottom: 14px;">データ変換フロー</h4>';
+
+            flows.forEach((f, i) => {
+                const fromList = (f.from || []).join(' + ');
+                html += `
+                    <div class="flow-row">
+                        <span class="flow-num">${i + 1}</span>
+                        <div class="flow-content">
+                            <span class="flow-from">${fromList}</span>
+                            <span style="margin: 0 6px; color: #a0aec0;">&rarr;</span>
+                            <span class="flow-op">[${f.operation || ''}]</span>
+                            <span style="margin: 0 6px; color: #a0aec0;">&rarr;</span>
+                            <span class="flow-to">${f.to || ''}</span>
+                        </div>
+                    </div>`;
+            });
+
+            html += '</div>';
+
+            // Text flow (for copy)
+            html += '<div style="margin-top: 16px;">';
+            html += '<h4 style="font-size: 14px; color: #2d3748; margin-bottom: 8px;">フロー概要（テキスト）</h4>';
+            html += '<pre style="background: #2d3748; color: #e2e8f0; padding: 16px; border-radius: 8px; font-size: 12px; overflow-x: auto; white-space: pre-wrap;">';
+            flows.forEach((f, i) => {
+                const fromList = (f.from || []).join(' + ');
+                if (i > 0) html += '\n      |\n      v\n';
+                html += `  ${fromList}\n    --[${f.operation}]-->\n  ${f.to}`;
+            });
+            html += '</pre></div>';
+
+            container.innerHTML = html;
+        }
+
+        function escapeHtml(str) {
+            return (str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        }
+
+        // === Feedback ===
+        async function submitFeedback() {
+            const text = document.getElementById('feedbackInput').value.trim();
+            if (!text) { alert('修正指示を入力してください'); return; }
+            if (!currentResult?.generation_id) return;
+
+            showScreen('screen2');
+            activateStep(2);
+
+            const fd = new FormData();
+            fd.append('generation_id', currentResult.generation_id);
+            fd.append('project_id', currentProjectId);
+            fd.append('feedback_text', text);
+            fd.append('selected_tables', JSON.stringify([...selectedTables]));
+
+            try {
+                const res = await fetch('/api/generate/feedback', { method: 'POST', body: fd });
+                if (!res.ok) throw new Error((await res.json()).detail);
+                completeAllSteps();
+                currentResult = await res.json();
+                document.getElementById('feedbackInput').value = '';
+                setTimeout(() => showResults(), 500);
+            } catch (e) {
+                alert('修正エラー: ' + e.message);
+                showScreen('screen3');
+            }
+        }
+
+        // === Confirm ===
+        async function confirmResult() {
+            if (!currentResult?.generation_id) return;
+
+            const fd = new FormData();
+            fd.append('generation_id', currentResult.generation_id);
+
+            try {
+                const res = await fetch('/api/generate/confirm', { method: 'POST', body: fd });
+                currentResult = await res.json();
+                showResults();
+            } catch (e) {
+                alert('確定エラー: ' + e.message);
+            }
+        }
+
+        // === Downloads ===
+        function downloadCSV() {
+            if (currentResult?.generation_id) {
+                window.location.href = '/api/download-csv/' + currentResult.generation_id;
+            } else {
+                window.location.href = '/api/download-csv-session';
+            }
+        }
+
+        function downloadExcel() {
+            if (currentResult?.generation_id) {
+                window.location.href = '/api/download-excel/' + currentResult.generation_id;
+            } else {
+                alert('先に生成結果を確定してください');
+            }
+        }
+
+        // === Utility ===
+        function showScreen(id) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+        }
+
+        function switchTab(name, event) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.getElementById('tab-' + name).classList.add('active');
+        }
+
+        function resetApp() {
+            parsedData = null;
+            selectedTables.clear();
+            currentResult = null;
+            searchResultData = [];
+            document.getElementById('searchInput').value = '';
+            document.getElementById('requirements').value = '';
+            document.getElementById('feedbackInput').value = '';
+            document.getElementById('searchResults').classList.remove('visible');
+            document.getElementById('previewSection').classList.remove('visible');
+            document.getElementById('requirementsGroup').style.display = 'none';
+            document.getElementById('generateBtnWrap').style.display = 'none';
+            document.querySelectorAll('.progress-step').forEach(s => s.classList.remove('active','completed'));
+            showScreen('screen1');
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab')[0]?.classList.add('active');
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.getElementById('tab-design')?.classList.add('active');
+        }
+
+        function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+    </script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.env
+knowledge.db
+test_data.xlsx
+demo_output.txt
+.claude/
